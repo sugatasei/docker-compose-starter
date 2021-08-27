@@ -1,0 +1,98 @@
+version: '3.4'
+
+services:
+
+  nginx:
+    hostname: nginx
+    image: nginx:latest
+    environment:
+      - TZ=Europe/Paris
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - appdrive:/app
+    ports:
+      - "80:80"
+    networks:
+      - applink
+
+  php:
+    hostname: php
+    image: sugatasei/php:latest
+    environment:
+      - TZ=Europe/Paris
+    volumes:
+      - appdrive:/app
+      - ./ssh:/tmp/.ssh:ro
+    networks:
+      - applink
+
+  db:
+    hostname: db
+    image: sugatasei/db:latest
+    environment:
+      MYSQL_ROOT_PASSWORD: "web"
+      TZ: "Europe/Paris"
+    volumes:
+      - dbdrive:/var/lib/mysql
+      - ./db/scripts:/scripts
+      - ./db/dump:/dump
+    ports:
+      - "3306:3306"
+    networks:
+      - applink
+
+  elasticsearch:
+    hostname: elasticsearch
+    image: sugatasei/es:latest
+    environment:
+      cluster.name: "docker-cluster"
+      network.host: 0.0.0.0
+      discovery.zen.minimum_master_nodes: 1
+      discovery.type: single-node
+      bootstrap.memory_lock: true
+      http.cors.enabled: true
+      http.cors.allow-origin: "*"
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - esdrive:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+    networks:
+      - applink
+
+  maildev:
+    hostname: maildev
+    restart: always
+    image: djfarrelly/maildev
+    ports:
+      - "1080:80"
+      - "25:25"
+    networks:
+      - applink
+
+  adminer:
+    hostname: adminer
+    image: dockette/adminer:mysql
+    ports:
+      - "8000:80"
+    networks:
+      - applink
+
+volumes:
+  appdrive:
+    driver: local
+  dbdrive:
+    driver: local
+  esdrive:
+    driver: local
+
+networks:
+  applink:
+    driver: bridge
